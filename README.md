@@ -42,9 +42,11 @@ submitting it.
 
 ## Code map
 
+- `lib/main.dart`: Firebase initialization and app shell.
 - `lib/auth_service.dart`: Firebase Authentication operations and reauthentication.
-- `lib/main.dart`: app initialization, auth gate, sign-in/register UI, profile,
-  and the carried-forward Firestore product manager.
+- `lib/auth_flow.dart`: auth-state gate, sign-in/register UI, profile, and the
+  protected route for the product manager.
+- `lib/product_page.dart`: carried-forward Firestore product manager and editor.
 - `test/widget_test.dart`: widget smoke test for Firebase configuration failure.
 
 ## Manual checks before submission

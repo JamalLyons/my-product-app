@@ -7,7 +7,7 @@ import 'product_page.dart';
 class AuthGate extends StatelessWidget {
   const AuthGate({required this.authService, super.key});
 
-  final AuthService authService;
+  final AuthOperations authService;
 
   @override
   Widget build(BuildContext context) => StreamBuilder<User?>(
@@ -31,7 +31,7 @@ class AuthGate extends StatelessWidget {
 
 class AuthPage extends StatefulWidget {
   const AuthPage({required this.authService, super.key});
-  final AuthService authService;
+  final AuthOperations authService;
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -167,125 +167,23 @@ class _AuthPageState extends State<AuthPage> {
   );
 }
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({required this.authService, required this.user, super.key});
-  final AuthService authService;
+  final AuthOperations authService;
   final User user;
 
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  bool _signingOut = false;
+
   Future<void> _changePassword(BuildContext context) async {
-    final newPassword = TextEditingController();
-    final currentPassword = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    var recentLoginNeeded = false;
-    String? error;
-    var saving = false;
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => PopScope(
-          canPop: !saving,
-          child: AlertDialog(
-            title: const Text('Update password'),
-            content: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (recentLoginNeeded)
-                    TextFormField(
-                      controller: currentPassword,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Current password',
-                      ),
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Enter your current password.'
-                          : null,
-                    ),
-                  TextFormField(
-                    controller: newPassword,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'New password',
-                    ),
-                    validator: (value) => (value?.length ?? 0) < 6
-                        ? 'Use at least 6 characters.'
-                        : null,
-                  ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: saving ? null : () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: saving
-                    ? null
-                    : () async {
-                        if (!formKey.currentState!.validate()) return;
-                        setDialogState(() {
-                          saving = true;
-                          error = null;
-                        });
-                        try {
-                          if (recentLoginNeeded) {
-                            await authService.reauthenticateAndUpdatePassword(
-                              currentPassword: currentPassword.text,
-                              newPassword: newPassword.text,
-                            );
-                          } else {
-                            await authService.updatePassword(newPassword.text);
-                          }
-                          if (dialogContext.mounted) {
-                            Navigator.pop(dialogContext);
-                          }
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Password updated.'),
-                              ),
-                            );
-                          }
-                        } on FirebaseAuthException catch (exception) {
-                          setDialogState(() {
-                            saving = false;
-                            if (exception.code == 'requires-recent-login') {
-                              recentLoginNeeded = true;
-                              error = 'Please confirm your current password to continue.';
-                            } else {
-                              error = _friendlyAuthError(exception);
-                            }
-                          });
-                        } catch (exception) {
-                          setDialogState(() {
-                            saving = false;
-                            error = _friendlyAuthError(exception);
-                          });
-                        }
-                      },
-                child: saving
-                    ? const CircularProgressIndicator()
-                    : const Text('Update'),
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (_) => _PasswordUpdateDialog(authService: widget.authService),
     );
-    newPassword.dispose();
-    currentPassword.dispose();
   }
 
   @override
@@ -304,39 +202,49 @@ class ProfilePage extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             SelectableText(
-              user.email ?? 'Email unavailable',
+              widget.user.email ?? 'Email unavailable',
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => _changePassword(context),
+              onPressed: _signingOut ? null : () => _changePassword(context),
               icon: const Icon(Icons.password),
               label: const Text('Update password'),
             ),
             TextButton.icon(
-              onPressed: () async {
-                try {
-                  await authService.signOut();
-                } catch (error) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(_friendlyAuthError(error))),
-                    );
-                  }
-                }
-              },
+              onPressed: _signingOut
+                  ? null
+                  : () async {
+                      setState(() => _signingOut = true);
+                      try {
+                        await widget.authService.signOut();
+                      } catch (error) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(_friendlyAuthError(error))),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _signingOut = false);
+                      }
+                    },
               icon: const Icon(Icons.logout),
-              label: const Text('Sign out'),
+              label: _signingOut
+                  ? const CircularProgressIndicator()
+                  : const Text('Sign out'),
             ),
             const SizedBox(height: 16),
             FilledButton.tonalIcon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => ProductManagerGate(authService: authService),
-                ),
-              ),
+              onPressed: _signingOut
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            ProductManagerGate(authService: widget.authService),
+                      ),
+                    ),
               icon: const Icon(Icons.inventory_2),
               label: const Text('Open product manager'),
             ),
@@ -347,11 +255,126 @@ class ProfilePage extends StatelessWidget {
   );
 }
 
+class _PasswordUpdateDialog extends StatefulWidget {
+  const _PasswordUpdateDialog({required this.authService});
+  final AuthOperations authService;
+
+  @override
+  State<_PasswordUpdateDialog> createState() => _PasswordUpdateDialogState();
+}
+
+class _PasswordUpdateDialogState extends State<_PasswordUpdateDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _newPassword = TextEditingController();
+  final _currentPassword = TextEditingController();
+  bool _recentLoginNeeded = false;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _newPassword.dispose();
+    _currentPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      if (_recentLoginNeeded) {
+        await widget.authService.reauthenticateAndUpdatePassword(
+          currentPassword: _currentPassword.text,
+          newPassword: _newPassword.text,
+        );
+      } else {
+        await widget.authService.updatePassword(_newPassword.text);
+      }
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Password updated.')));
+    } catch (exception) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        if (exception is FirebaseAuthException &&
+            exception.code == 'requires-recent-login') {
+          _recentLoginNeeded = true;
+          _error = 'Please confirm your current password to continue.';
+        } else {
+          _error = _friendlyAuthError(exception);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_saving,
+    child: AlertDialog(
+      title: const Text('Update password'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_recentLoginNeeded)
+              TextFormField(
+                controller: _currentPassword,
+                enabled: !_saving,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Current password',
+                ),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Enter your current password.'
+                    : null,
+              ),
+            TextFormField(
+              controller: _newPassword,
+              enabled: !_saving,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'New password'),
+              validator: (value) => (value?.length ?? 0) < 6
+                  ? 'Use at least 6 characters.'
+                  : null,
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const CircularProgressIndicator()
+              : const Text('Update'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Re-checks auth state while the legacy Firestore screen is on the route stack.
 class ProductManagerGate extends StatelessWidget {
   const ProductManagerGate({required this.authService, super.key});
 
-  final AuthService authService;
+  final AuthOperations authService;
 
   @override
   Widget build(BuildContext context) => StreamBuilder<User?>(

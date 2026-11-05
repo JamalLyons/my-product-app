@@ -47,13 +47,13 @@ submitting it.
 - `lib/auth_flow.dart`: auth-state gate, sign-in/register UI, profile, and the
   protected route for the product manager.
 - `lib/product_page.dart`: carried-forward Firestore product manager and editor.
-- `test/widget_test.dart`: widget smoke test for Firebase configuration failure.
 
-## Manual checks before submission
+## Verify authentication
 
-Capture your own results for registration, sign-in, invalid input or failed
-sign-in, profile email, password update, sign-out and blocked profile access,
-session restoration, and loading/error behavior. If recent-login recovery is
-not triggered during testing, document the recovery test plan and code path
-instead of claiming it passed. Combine captioned screenshots and your reflection
-in one PDF or Word document as described in the assignment guide.
+On Android, register with a test account and confirm the profile email.
+Sign out, sign in again, and restart the app to check session restoration.
+Update the password, then confirm the old password is rejected and the new
+one works. Check that signing out blocks profile access after reopening the
+app. Try an invalid email, a short password, and incorrect credentials to
+verify error feedback. If Firebase requests a recent login during a password
+update, enter the current password and confirm the update can be retried.

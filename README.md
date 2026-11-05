@@ -1,22 +1,36 @@
-# my_product_app
+# Autumn Product Manager
 
-A new Flutter project.
+A Flutter product catalogue backed by Cloud Firestore. It supports creating,
+viewing, editing, and deleting products, plus live updates, case-insensitive
+name search, inclusive minimum/maximum price filters, and Reset.
 
-## Getting Started
+## Product data
 
-This project is a starting point for a Flutter application.
+The app uses the Firestore `products` collection. Each valid document must have:
 
-A few resources to get you started if this is your first Flutter project:
+- `name`: a nonempty string after trimming.
+- `price`: a finite, nonnegative Firestore number. A price of zero is valid.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Malformed existing records are shown with their document ID and can be deleted
+from the app. The app does not silently treat a malformed record as a valid
+product.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Android setup and run
 
+See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for Firebase project configuration,
+FlutterFire setup, and the assignment fixture workflow. The generated
+`lib/firebase_options.dart` and Android Firebase configuration are specific to
+your Firebase project and are intentionally ignored by Git. Do not commit
+service-account keys or tokens.
 
-## Firebase (Android)
+After configuring Firebase:
 
-See [FIREBASE_SETUP.md](FIREBASE_SETUP.md). Add your Firebase Android app configuration at `android/app/google-services.json`, create Firestore, and run `flutter run`.
+```sh
+flutter pub get
+flutter analyze
+flutter run -d <ANDROID_DEVICE_ID>
+```
+
+The complete list of account, device, evidence, and report tasks is in
+[`user-checklist.md`](user-checklist.md). The app code is kept in
+`lib/main.dart` for the assignment's main-Dart-file submission option.
